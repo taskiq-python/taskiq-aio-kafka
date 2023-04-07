@@ -69,6 +69,8 @@ class AioKafkaBroker(AsyncBroker):
 
     async def startup(self) -> None:
         """Setup AIOKafkaProducer, AIOKafkaConsumer and kafka topic."""
+        await super().startup()
+
         if not self._aiokafka_producer:
             self._aiokafka_producer = AIOKafkaProducer(
                 bootstrap_servers=self._bootstrap_servers or "localhost",
@@ -105,6 +107,32 @@ class AioKafkaBroker(AsyncBroker):
 
         await self._aiokafka_producer.start()
         await self._aiokafka_consumer.start()
+
+    async def shutdown(self) -> None:
+        """Close all connections on shutdown."""
+        await super().shutdown()
+
+        if self._aiokafka_producer:
+            await self._aiokafka_producer.stop()
+
+        if self._aiokafka_consumer:
+            await self._aiokafka_consumer.stop()
+
+        topic_delete_condition: bool = all(
+            (
+                self._delete_topic_on_shutdown,
+                self._kafka_topic.name  # type: ignore
+                in self._kafka_admin_client.list_topics(),  # type: ignore
+            )
+        )
+
+        if self._kafka_admin_client:
+            if topic_delete_condition:
+                self._kafka_admin_client.delete_topics(
+                    [self._kafka_topic.name],  # type: ignore
+                )
+            self._kafka_admin_client.close()
+
 
     async def kick(self, message: BrokerMessage) -> None:
         """Send message to the topic.
