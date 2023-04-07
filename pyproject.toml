@@ -24,8 +24,10 @@ keywords = ["taskiq", "tasks", "distributed", "async"]
 packages = [{ include = "taskiq_kafka" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.7"
 taskiq = "^0"
+aiokafka = "^0.8.0"
+pydantic = "^1.10.7"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.2"

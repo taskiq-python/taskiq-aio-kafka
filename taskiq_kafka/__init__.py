@@ -1,1 +1,1 @@
-"""Project was generated using taskiq."""
+"""Taskiq integration with kafka."""
