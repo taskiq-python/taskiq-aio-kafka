@@ -1,7 +1,7 @@
 import asyncio
 import pickle  # noqa: S403
 from logging import getLogger
-from typing import AsyncGenerator, Callable, Coroutine, List, Optional, Set, TypeVar, Union
+from typing import AsyncGenerator, Callable, List, Optional, Set, TypeVar, Union
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -79,6 +79,8 @@ class AioKafkaBroker(AsyncBroker):
         self._default_kafka_topic: str = "taskiq_topic"
         self._delete_topic_on_shutdown: bool = delete_topic_on_shutdown
 
+        self._high_priority_topic_prefix: str = "high_priority_"
+        self._high_priority_topic: Optional[NewTopic] = None
         self._delay_kick_tasks: Set[asyncio.Task[None]] = set()
 
         if (aiokafka_producer or aiokafka_consumer) and not bootstrap_servers:
@@ -89,8 +91,14 @@ class AioKafkaBroker(AsyncBroker):
                 ),
             )
 
-    async def startup(self) -> None:
-        """Setup AIOKafkaProducer, AIOKafkaConsumer and kafka topic."""
+    async def startup(self) -> None:  # noqa: C901
+        """Setup AIOKafkaProducer, AIOKafkaConsumer and kafka topics.
+
+        We will have 2 topics for default and high priority.
+
+        Also we need to create AIOKafkaProducer and AIOKafkaConsumer
+        if there are no producer and consumer passed.
+        """
         await super().startup()
 
         if not self._aiokafka_producer:
@@ -99,16 +107,36 @@ class AioKafkaBroker(AsyncBroker):
                 loop=self._loop,
             )
 
+        if self._kafka_topic:
+            self._high_priority_topic: NewTopic = NewTopic(  # type: ignore
+                name=self._high_priority_topic_prefix + self._kafka_topic.name,
+                num_partitions=self._kafka_topic.num_partitions,
+                replication_factor=self._kafka_topic.replication_factor,
+                replica_assignments=self._kafka_topic.replica_assignments,
+                topic_configs=self._kafka_topic.topic_configs,
+            )
+
         if not self._kafka_topic:
             self._kafka_topic: NewTopic = NewTopic(  # type: ignore
                 name=self._default_kafka_topic,
                 num_partitions=1,
                 replication_factor=1,
             )
+            self._high_priority_topic: NewTopic = NewTopic(  # type: ignore
+                name=self._high_priority_topic_prefix + self._default_kafka_topic,
+                num_partitions=1,
+                replication_factor=1,
+            )
+
+        if self._aiokafka_consumer:
+            self._aiokafka_consumer._client.add_topic(  # noqa: WPS437
+                self._high_priority_topic.name,  # type: ignore
+            )
 
         if not self._aiokafka_consumer:
             self._aiokafka_consumer = AIOKafkaConsumer(
                 self._kafka_topic.name,
+                self._high_priority_topic,
                 bootstrap_servers=self._bootstrap_servers,
                 loop=self._loop,
             )
@@ -145,7 +173,7 @@ class AioKafkaBroker(AsyncBroker):
                 self._delete_topic_on_shutdown,
                 self._kafka_topic.name  # type: ignore
                 in self._kafka_admin_client.list_topics(),  # type: ignore
-            )
+            ),
         )
 
         if self._kafka_admin_client:
@@ -154,7 +182,6 @@ class AioKafkaBroker(AsyncBroker):
                     [self._kafka_topic.name],  # type: ignore
                 )
             self._kafka_admin_client.close()
-
 
     async def kick(self, message: BrokerMessage) -> None:
         """Send message to the topic.
@@ -170,6 +197,7 @@ class AioKafkaBroker(AsyncBroker):
         if not self._aiokafka_producer:
             raise ValueError("Specify aiokafka_producer or run startup before kicking.")
 
+        priority = parse_val(int, message.labels.get("priority"))
         kafka_message: bytes = pickle.dumps(
             KafkaMessage(
                 broker_message=message,
@@ -177,8 +205,11 @@ class AioKafkaBroker(AsyncBroker):
         )
 
         topic_name: str = (
-            self._kafka_topic.name if self._kafka_topic else self._default_kafka_topic
+            self._high_priority_topic.name  # type: ignore
+            if priority
+            else self._kafka_topic.name  # type: ignore
         )
+
         delay = parse_val(int, message.labels.get("delay"))
         if delay is None:
             await self._aiokafka_producer.send(  # type: ignore
@@ -191,29 +222,12 @@ class AioKafkaBroker(AsyncBroker):
                     kafka_message=kafka_message,
                     topic_name=topic_name,
                     delay=delay,
-                )
+                ),
             )
             self._delay_kick_tasks.add(delay_kick_task)
             delay_kick_task.add_done_callback(
                 self._delay_kick_tasks.discard,
             )
-
-    async def _delay_kick(
-        self, 
-        kafka_message: bytes,
-        topic_name: str,
-        delay: float,    
-    ) -> None:
-        """Send message to the topic after delay time.
-        
-        :param message: message to send.
-        :param delay: delay before kicking in seconds.
-        """
-        await asyncio.sleep(delay=delay)
-        await self._aiokafka_producer.send(  # type: ignore
-            topic=topic_name,
-            value=kafka_message,
-        )
 
     async def listen(
         self,
@@ -240,3 +254,21 @@ class AioKafkaBroker(AsyncBroker):
                     exc_info=True,
                 )
             yield kafka_message.broker_message
+
+    async def _delay_kick(
+        self,
+        kafka_message: bytes,
+        topic_name: str,
+        delay: float,
+    ) -> None:
+        """Send message to the topic after delay time.
+
+        :param kafka_message: message to send.
+        :param topic_name: name of the topic.
+        :param delay: delay before kicking in seconds.
+        """
+        await asyncio.sleep(delay=delay)
+        await self._aiokafka_producer.send(  # type: ignore
+            topic=topic_name,
+            value=kafka_message,
+        )
