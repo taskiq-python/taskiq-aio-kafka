@@ -1,7 +1,7 @@
 import asyncio
 import pickle  # noqa: S403
 from logging import getLogger
-from typing import AsyncGenerator, Callable, List, Optional, TypeVar, Union
+from typing import AsyncGenerator, Callable, Coroutine, List, Optional, Set, TypeVar, Union
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -17,12 +17,32 @@ _T = TypeVar("_T")  # noqa: WPS111
 logger = getLogger("taskiq.aio_pika_broker")
 
 
+def parse_val(
+    parse_func: Callable[[str], _T],
+    target: Optional[str] = None,
+) -> Optional[_T]:
+    """
+    Parse string to some value.
+
+    :param parse_func: function to use if value is present.
+    :param target: value to parse, defaults to None
+    :return: Optional value.
+    """
+    if target is None:
+        return None
+
+    try:
+        return parse_func(target)
+    except ValueError:
+        return None
+
+
 class AioKafkaBroker(AsyncBroker):
     """Broker that works with Kafka."""
 
     def __init__(  # noqa: WPS211
         self,
-        bootstrap_servers: Optional[Union[str, List[str]]] = None,
+        bootstrap_servers: Optional[Union[str, List[str]]],
         kafka_topic: Optional[NewTopic] = None,
         result_backend: Optional[AsyncResultBackend[_T]] = None,
         task_id_generator: Optional[Callable[[], str]] = None,
@@ -59,6 +79,8 @@ class AioKafkaBroker(AsyncBroker):
         self._default_kafka_topic: str = "taskiq_topic"
         self._delete_topic_on_shutdown: bool = delete_topic_on_shutdown
 
+        self._delay_kick_tasks: Set[asyncio.Task[None]] = set()
+
         if (aiokafka_producer or aiokafka_consumer) and not bootstrap_servers:
             raise WrongAioKafkaBrokerParametersError(
                 (
@@ -73,7 +95,7 @@ class AioKafkaBroker(AsyncBroker):
 
         if not self._aiokafka_producer:
             self._aiokafka_producer = AIOKafkaProducer(
-                bootstrap_servers=self._bootstrap_servers or "localhost",
+                bootstrap_servers=self._bootstrap_servers,
                 loop=self._loop,
             )
 
@@ -87,14 +109,14 @@ class AioKafkaBroker(AsyncBroker):
         if not self._aiokafka_consumer:
             self._aiokafka_consumer = AIOKafkaConsumer(
                 self._kafka_topic.name,
-                bootstrap_servers=self._bootstrap_servers or "localhost",
+                bootstrap_servers=self._bootstrap_servers,
                 loop=self._loop,
             )
 
         if not self._kafka_admin_client:
             self._kafka_admin_client: KafkaAdminClient = (  # type: ignore
                 KafkaAdminClient(
-                    bootstrap_servers="localhost",
+                    bootstrap_servers=self._bootstrap_servers,
                     client_id="kafka-python-taskiq",
                 )
             )
@@ -157,6 +179,37 @@ class AioKafkaBroker(AsyncBroker):
         topic_name: str = (
             self._kafka_topic.name if self._kafka_topic else self._default_kafka_topic
         )
+        delay = parse_val(int, message.labels.get("delay"))
+        if delay is None:
+            await self._aiokafka_producer.send(  # type: ignore
+                topic=topic_name,
+                value=kafka_message,
+            )
+        else:
+            delay_kick_task = asyncio.create_task(
+                self._delay_kick(
+                    kafka_message=kafka_message,
+                    topic_name=topic_name,
+                    delay=delay,
+                )
+            )
+            self._delay_kick_tasks.add(delay_kick_task)
+            delay_kick_task.add_done_callback(
+                self._delay_kick_tasks.discard,
+            )
+
+    async def _delay_kick(
+        self, 
+        kafka_message: bytes,
+        topic_name: str,
+        delay: float,    
+    ) -> None:
+        """Send message to the topic after delay time.
+        
+        :param message: message to send.
+        :param delay: delay before kicking in seconds.
+        """
+        await asyncio.sleep(delay=delay)
         await self._aiokafka_producer.send(  # type: ignore
             topic=topic_name,
             value=kafka_message,
