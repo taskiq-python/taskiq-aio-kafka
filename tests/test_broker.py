@@ -7,7 +7,7 @@ import pytest
 from aiokafka import AIOKafkaProducer
 from taskiq import BrokerMessage
 
-from taskiq_kafka.broker import AioKafkaBroker
+from taskiq_aio_kafka.broker import AioKafkaBroker
 
 
 async def get_first_task(broker: AioKafkaBroker) -> BrokerMessage:  # type: ignore

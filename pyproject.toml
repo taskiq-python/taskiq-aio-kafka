@@ -21,7 +21,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 keywords = ["taskiq", "tasks", "distributed", "async", "kafka", "aiokafka"]
-packages = [{ include = "taskiq_kafka" }]
+packages = [{ include = "taskiq_aio_kafka" }]
 
 [tool.poetry.dependencies]
 python = "^3.7"

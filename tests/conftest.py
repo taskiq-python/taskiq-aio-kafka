@@ -6,7 +6,7 @@ import pytest
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import NewTopic
 
-from taskiq_kafka.broker import AioKafkaBroker
+from taskiq_aio_kafka.broker import AioKafkaBroker
 
 
 @pytest.fixture(scope="session")

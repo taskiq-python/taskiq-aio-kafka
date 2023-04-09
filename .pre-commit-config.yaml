@@ -41,14 +41,14 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-        args: [--count, taskiq_kafka]
+        args: [--count, taskiq_aio_kafka]
 
       - id: mypy
         name: Validate types with MyPy
         entry: poetry run mypy
         language: system
         types: [python]
-        args: [taskiq_kafka]
+        args: [taskiq_aio_kafka]
 
       - id: yesqa
         name: Remove usless noqa

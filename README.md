@@ -4,7 +4,7 @@ This lirary provides you with aiokafka broker for taskiq.
 
 Usage:
 ```python
-from taskiq_kafka import AioKafkaBroker
+from taskiq_aio_kafka import AioKafkaBroker
 
 broker = AioKafkaBroker(bootstrap_servers="localhost")
 

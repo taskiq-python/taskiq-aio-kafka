@@ -8,7 +8,7 @@ from kafka.admin import KafkaAdminClient, NewTopic
 from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
 
-from taskiq_kafka.exceptions import WrongAioKafkaBrokerParametersError
+from taskiq_aio_kafka.exceptions import WrongAioKafkaBrokerParametersError
 
 _T = TypeVar("_T")  # noqa: WPS111
 
