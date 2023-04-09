@@ -13,7 +13,7 @@ from taskiq_kafka.exceptions import WrongAioKafkaBrokerParametersError
 _T = TypeVar("_T")  # noqa: WPS111
 
 
-logger = getLogger("taskiq.aio_pika_broker")
+logger = getLogger("taskiq.kafka_broker")
 
 
 def parse_val(

@@ -4,7 +4,7 @@ from typing import Dict, List
 from uuid import uuid4
 
 import pytest
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka import AIOKafkaProducer
 from taskiq import BrokerMessage
 
 from taskiq_kafka.broker import AioKafkaBroker
