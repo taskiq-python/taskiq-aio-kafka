@@ -113,6 +113,8 @@ per-file-ignores =
   WPS111,
   ; Found complex default value
   WPS404,
+  ; Found outer scope names shadowing
+  tests/conftest.py: WPS442
 
 exclude =
   ./.git,

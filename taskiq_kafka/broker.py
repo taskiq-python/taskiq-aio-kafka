@@ -9,7 +9,6 @@ from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
 
 from taskiq_kafka.exceptions import WrongAioKafkaBrokerParametersError
-from taskiq_kafka.message import KafkaMessage
 
 _T = TypeVar("_T")  # noqa: WPS111
 
@@ -79,8 +78,6 @@ class AioKafkaBroker(AsyncBroker):
         self._default_kafka_topic: str = "taskiq_topic"
         self._delete_topic_on_shutdown: bool = delete_topic_on_shutdown
 
-        self._high_priority_topic_prefix: str = "high_priority_"
-        self._high_priority_topic: Optional[NewTopic] = None
         self._delay_kick_tasks: Set[asyncio.Task[None]] = set()
 
         if (aiokafka_producer or aiokafka_consumer) and not bootstrap_servers:
@@ -107,38 +104,11 @@ class AioKafkaBroker(AsyncBroker):
                 loop=self._loop,
             )
 
-        if self._kafka_topic:
-            self._high_priority_topic: NewTopic = NewTopic(  # type: ignore
-                name=self._high_priority_topic_prefix + self._kafka_topic.name,
-                num_partitions=self._kafka_topic.num_partitions,
-                replication_factor=self._kafka_topic.replication_factor,
-                replica_assignments=self._kafka_topic.replica_assignments,
-                topic_configs=self._kafka_topic.topic_configs,
-            )
-
         if not self._kafka_topic:
             self._kafka_topic: NewTopic = NewTopic(  # type: ignore
                 name=self._default_kafka_topic,
                 num_partitions=1,
                 replication_factor=1,
-            )
-            self._high_priority_topic: NewTopic = NewTopic(  # type: ignore
-                name=self._high_priority_topic_prefix + self._default_kafka_topic,
-                num_partitions=1,
-                replication_factor=1,
-            )
-
-        if self._aiokafka_consumer:
-            self._aiokafka_consumer._client.add_topic(  # noqa: WPS437
-                self._high_priority_topic.name,  # type: ignore
-            )
-
-        if not self._aiokafka_consumer:
-            self._aiokafka_consumer = AIOKafkaConsumer(
-                self._kafka_topic.name,
-                self._high_priority_topic,
-                bootstrap_servers=self._bootstrap_servers,
-                loop=self._loop,
             )
 
         if not self._kafka_admin_client:
@@ -153,6 +123,13 @@ class AioKafkaBroker(AsyncBroker):
             self._kafka_admin_client.create_topics(
                 new_topics=[self._kafka_topic],
                 validate_only=False,
+            )
+
+        if not self._aiokafka_consumer:
+            self._aiokafka_consumer = AIOKafkaConsumer(
+                self._kafka_topic.name,
+                bootstrap_servers=self._bootstrap_servers,
+                loop=self._loop,
             )
 
         await self._aiokafka_producer.start()
@@ -197,18 +174,8 @@ class AioKafkaBroker(AsyncBroker):
         if not self._aiokafka_producer:
             raise ValueError("Specify aiokafka_producer or run startup before kicking.")
 
-        priority = parse_val(int, message.labels.get("priority"))
-        kafka_message: bytes = pickle.dumps(
-            KafkaMessage(
-                broker_message=message,
-            ),
-        )
-
-        topic_name: str = (
-            self._high_priority_topic.name  # type: ignore
-            if priority
-            else self._kafka_topic.name  # type: ignore
-        )
+        kafka_message: bytes = pickle.dumps(message)
+        topic_name: str = self._kafka_topic.name  # type: ignore
 
         delay = parse_val(int, message.labels.get("delay"))
         if delay is None:
@@ -244,7 +211,7 @@ class AioKafkaBroker(AsyncBroker):
             raise ValueError("Specify aiokafka_consumer or run startup before kicking.")
         async for raw_kafka_message in self._aiokafka_consumer:
             try:
-                kafka_message: KafkaMessage = pickle.loads(  # noqa: S301
+                broker_message: BrokerMessage = pickle.loads(  # noqa: S301
                     raw_kafka_message.value,
                 )
             except (TypeError, ValueError) as exc:
@@ -253,7 +220,8 @@ class AioKafkaBroker(AsyncBroker):
                     exc,
                     exc_info=True,
                 )
-            yield kafka_message.broker_message
+                continue
+            yield broker_message
 
     async def _delay_kick(
         self,
