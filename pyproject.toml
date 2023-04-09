@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "taskiq-kafka"
+name = "taskiq-aio-kafka"
 description = "Kafka broker for taskiq"
 authors = ["Taskiq team <taskiq@no-reply.com>"]
 maintainers = ["Taskiq team <taskiq@no-reply.com>"]
