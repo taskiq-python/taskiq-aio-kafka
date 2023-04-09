@@ -49,6 +49,7 @@ repos:
         language: system
         types: [python]
         args: [taskiq_aio_kafka]
+        pass_filenames: false
 
       - id: yesqa
         name: Remove usless noqa
