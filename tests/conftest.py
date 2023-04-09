@@ -32,7 +32,7 @@ def kafka_url() -> str:
 
 @pytest.fixture()
 def base_topic_name() -> str:
-    """Generated topic name.
+    """Generate topic name.
 
     :returns: random topic name.
     """
@@ -41,7 +41,7 @@ def base_topic_name() -> str:
 
 @pytest.fixture()
 def base_topic(base_topic_name: str) -> NewTopic:
-    """Generated base kafka topic.
+    """Generate base kafka topic.
 
     :param base_topic_name: name of the kafka topic.
 
