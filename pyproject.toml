@@ -20,7 +20,7 @@ classifiers = [
     "Topic :: System :: Networking",
     "Development Status :: 3 - Alpha",
 ]
-keywords = ["taskiq", "tasks", "distributed", "async"]
+keywords = ["taskiq", "tasks", "distributed", "async", "kafka", "aiokafka"]
 packages = [{ include = "taskiq_kafka" }]
 
 [tool.poetry.dependencies]
