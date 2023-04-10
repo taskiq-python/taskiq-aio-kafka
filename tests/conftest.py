@@ -87,7 +87,6 @@ async def test_kafka_consumer(
 @pytest.fixture()
 async def broker_without_arguments(
     kafka_url: str,
-    base_topic_name: str,
 ) -> AsyncGenerator[AioKafkaBroker, None]:
     """Return AioKafkaBroker default realization.
 
@@ -95,12 +94,12 @@ async def broker_without_arguments(
     and AIOKafkaConsumer.
 
     :param kafka_url: url to kafka.
-    :param base_topic_name: name of the topic.
 
     :yields: AioKafkaBroker.
     """
     broker = AioKafkaBroker(
         bootstrap_servers=kafka_url,
+        delete_topic_on_shutdown=True,
     )
     broker.is_worker_process = True
 
@@ -114,10 +113,8 @@ async def broker_without_arguments(
 @pytest.fixture()
 async def broker(
     kafka_url: str,
-    base_topic: NewTopic,
     test_kafka_producer: AIOKafkaProducer,
     test_kafka_consumer: AIOKafkaConsumer,
-    base_topic_name: str,
 ) -> AsyncGenerator[AioKafkaBroker, None]:
     """Yield new broker instance.
 
@@ -126,18 +123,16 @@ async def broker(
     and shutdown after test.
 
     :param kafka_url: url to kafka.
-    :param base_topic: custom topic.
     :param test_kafka_producer: custom AIOKafkaProducer.
     :param test_kafka_consumer: custom AIOKafkaConsumer.
-    :param base_topic_name: name of the topic.
 
     :yields: broker.
     """
     broker = AioKafkaBroker(
         bootstrap_servers=kafka_url,
-        kafka_topic=base_topic,
         aiokafka_producer=test_kafka_producer,
         aiokafka_consumer=test_kafka_consumer,
+        delete_topic_on_shutdown=True,
     )
     broker.is_worker_process = True
 

@@ -115,7 +115,8 @@ class AioKafkaBroker(AsyncBroker):
 
         self._delay_kick_tasks: Set[asyncio.Task[None]] = set()
 
-        self._is_started = False
+        self._is_producer_started = False
+        self._is_consumer_started = False
 
     async def startup(self) -> None:
         """Setup AIOKafkaProducer, AIOKafkaConsumer and kafka topics.
@@ -127,7 +128,10 @@ class AioKafkaBroker(AsyncBroker):
         """
         await super().startup()
 
-        if self._kafka_topic.name not in self._kafka_admin_client.list_topics():
+        is_topic_available: bool = bool(
+            self._kafka_admin_client.describe_topics([self._kafka_topic.name]),
+        )
+        if not is_topic_available:
             self._kafka_admin_client.create_topics(
                 new_topics=[self._kafka_topic],
                 validate_only=False,
@@ -136,8 +140,9 @@ class AioKafkaBroker(AsyncBroker):
         await self._aiokafka_producer.start()
         if self.is_worker_process:
             await self._aiokafka_consumer.start()
+            self._is_consumer_started = True
 
-        self._is_started = True
+        self._is_producer_started = True
 
     async def shutdown(self) -> None:
         """Close all connections on shutdown."""
@@ -175,7 +180,7 @@ class AioKafkaBroker(AsyncBroker):
         :raises ValueError: if startup wasn't called.
         :param message: message to send.
         """
-        if not self._is_started:
+        if not self._is_producer_started:
             raise ValueError("Please run startup before kicking.")
 
         kafka_message: bytes = pickle.dumps(message)
@@ -197,7 +202,7 @@ class AioKafkaBroker(AsyncBroker):
         :yields: parsed broker message.
         :raises ValueError: if no aiokafka_consumer or startup wasn't called.
         """
-        if not self._is_started:
+        if not self._is_consumer_started:
             raise ValueError("Please run startup before listening.")
 
         async for raw_kafka_message in self._aiokafka_consumer:

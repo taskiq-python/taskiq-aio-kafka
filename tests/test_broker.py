@@ -53,7 +53,6 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
     received_message: BrokerMessage = pickle.loads(
         received_message_bytes,
     )
-
     assert message_to_send == received_message
 
 
