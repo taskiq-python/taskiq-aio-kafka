@@ -32,11 +32,11 @@ def kafka_url() -> str:
 
 @pytest.fixture()
 def base_topic_name() -> str:
-    """Generate topic name.
+    """Return topic name.
 
-    :returns: random topic name.
+    :returns: topic name.
     """
-    return uuid4().hex
+    return "taskiq_topic"
 
 
 @pytest.fixture()

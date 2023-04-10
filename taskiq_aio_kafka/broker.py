@@ -78,6 +78,8 @@ class AioKafkaBroker(AsyncBroker):
 
         self._bootstrap_servers: Optional[Union[str, List[str]]] = bootstrap_servers
 
+        self._loop: Optional[asyncio.AbstractEventLoop] = loop
+
         self._kafka_topic: NewTopic = kafka_topic or NewTopic(
             name="taskiq_topic",
             num_partitions=1,
@@ -108,7 +110,6 @@ class AioKafkaBroker(AsyncBroker):
                 client_id="kafka-python-taskiq",
             )
         )
-        self._loop: Optional[asyncio.AbstractEventLoop] = loop
 
         self._delete_topic_on_shutdown: bool = delete_topic_on_shutdown
 

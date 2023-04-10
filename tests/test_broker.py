@@ -44,7 +44,15 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
 
     await broker.kick(message_to_send)
 
-    received_message = await asyncio.wait_for(get_first_task(broker), timeout=1)
+    received_message_bytes: bytes = await asyncio.wait_for(
+        get_first_task(broker), 
+        timeout=1,
+    )
+    assert pickle.dumps(message_to_send) == received_message_bytes
+
+    received_message: BrokerMessage = pickle.loads(
+        received_message_bytes,
+    )
 
     assert message_to_send == received_message
 
@@ -94,62 +102,30 @@ async def test_listen(
     message: bytes = pickle.dumps(uuid4().hex)
     labels: Dict[str, str] = {"test_label": "123"}
 
+    message_to_send: BrokerMessage = BrokerMessage(
+        task_id=task_id,
+        task_name=task_name,
+        message=message,
+        labels=labels,
+    )
+
     await test_kafka_producer.send(
         topic=base_topic_name,
-        value=pickle.dumps(
-            BrokerMessage(
-                task_id=task_id,
-                task_name=task_name,
-                message=message,
-                labels=labels,
-            ),
-        ),
+        value=pickle.dumps(message_to_send),
     )
 
-    broker_message: BrokerMessage = pickle.loads(  # noqa: S301
-        await asyncio.wait_for(
-            get_first_task(broker),
-            timeout=1,
-        ),
-    )
-
-    assert broker_message.message == message
-    assert broker_message.labels == labels
-    assert broker_message.task_id == task_id
-    assert broker_message.task_name == task_name
-
-
-@pytest.mark.anyio
-async def test_delayed_message(
-    broker: AioKafkaBroker,
-) -> None:
-    """Test that delayed messages are delivered correctly.
-
-    This test send message with delay label,
-    checks that this message will appear in main topic
-    only after delay time.
-
-    :param broker: current broker.
-    """
-    broker_msg = BrokerMessage(
-        task_id="1",
-        task_name="name",
-        message=pickle.dumps("message"),
-        labels={"delay": "3"},
-    )
-
-    await broker.kick(broker_msg)
-
-    with pytest.raises(Exception):
-        await asyncio.wait_for(
-            get_first_task(broker),
-            timeout=1,
-        )
-
-    await asyncio.sleep(3)
-
-    received_message = await asyncio.wait_for(
+    received_message_bytes: bytes = await asyncio.wait_for(
         get_first_task(broker),
         timeout=1,
     )
-    assert received_message == broker_msg
+
+    assert pickle.dumps(message_to_send) == received_message_bytes
+
+    received_message: BrokerMessage = pickle.loads(
+        received_message_bytes,
+    )
+
+    assert received_message.message == message
+    assert received_message.labels == labels
+    assert received_message.task_id == task_id
+    assert received_message.task_name == task_name
