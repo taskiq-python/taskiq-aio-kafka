@@ -10,7 +10,7 @@ from taskiq import BrokerMessage
 from taskiq_aio_kafka.broker import AioKafkaBroker
 
 
-async def get_first_task(broker: AioKafkaBroker) -> BrokerMessage:  # type: ignore
+async def get_first_task(broker: AioKafkaBroker) -> bytes:  # type: ignore
     """Get first message from the topic.
 
     :param broker: async message broker.
@@ -36,7 +36,7 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
     message_to_send = BrokerMessage(
         task_id=task_id,
         task_name=task_name,
-        message="my_msg",
+        message=pickle.dumps("my_msg"),
         labels={
             "label1": "val1",
         },
@@ -91,7 +91,7 @@ async def test_listen(
     """
     task_id: str = uuid4().hex
     task_name: str = uuid4().hex
-    message: str = uuid4().hex
+    message: bytes = pickle.dumps(uuid4().hex)
     labels: Dict[str, str] = {"test_label": "123"}
 
     await test_kafka_producer.send(
@@ -106,9 +106,11 @@ async def test_listen(
         ),
     )
 
-    broker_message: BrokerMessage = await asyncio.wait_for(
-        get_first_task(broker),
-        timeout=1,
+    broker_message: BrokerMessage = pickle.loads(  # noqa: S301
+        await asyncio.wait_for(
+            get_first_task(broker),
+            timeout=1,
+        ),
     )
 
     assert broker_message.message == message
@@ -132,7 +134,7 @@ async def test_delayed_message(
     broker_msg = BrokerMessage(
         task_id="1",
         task_name="name",
-        message="message",
+        message=pickle.dumps("message"),
         labels={"delay": "3"},
     )
 

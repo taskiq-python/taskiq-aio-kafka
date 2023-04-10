@@ -103,7 +103,6 @@ async def broker_without_arguments(
     broker = AioKafkaBroker(
         bootstrap_servers=kafka_url,
     )
-    broker._default_kafka_topic = base_topic_name  # noqa: WPS437
     broker.is_worker_process = True
 
     await broker.startup()

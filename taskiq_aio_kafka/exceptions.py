@@ -1,6 +1,5 @@
-class BaseTaskiqKafkaError(Exception):
-    """Base class for all TaskiqKafka errors."""
+from taskiq.exceptions import BrokerError
 
 
-class WrongAioKafkaBrokerParametersError(BaseTaskiqKafkaError):
+class WrongAioKafkaBrokerParametersError(BrokerError):
     """Error if Producer or Consumer is specified but no bootstrap_servers."""
