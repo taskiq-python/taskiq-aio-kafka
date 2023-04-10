@@ -15,7 +15,7 @@ async def test() -> None:
 
 ## Configuration
 
-AioKafkaBroker parameters:  
+AioKafkaBroker parameters:
 * `bootstrap_servers` - url to kafka nodes. Can be either string or list of strings.
 * `kafka_topic` - custom topic in kafka.
 * `result_backend` - custom result backend.

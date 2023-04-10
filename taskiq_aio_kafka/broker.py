@@ -117,7 +117,7 @@ class AioKafkaBroker(AsyncBroker):
 
         self._is_started = False
 
-    async def startup(self) -> None:  # noqa: C901
+    async def startup(self) -> None:
         """Setup AIOKafkaProducer, AIOKafkaConsumer and kafka topics.
 
         We will have 2 topics for default and high priority.
