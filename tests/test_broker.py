@@ -45,7 +45,7 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
     await broker.kick(message_to_send)
 
     received_message_bytes: bytes = await asyncio.wait_for(
-        get_first_task(broker), 
+        get_first_task(broker),
         timeout=1,
     )
     assert pickle.dumps(message_to_send) == received_message_bytes

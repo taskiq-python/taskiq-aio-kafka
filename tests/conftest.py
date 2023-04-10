@@ -1,6 +1,5 @@
 import os
 from typing import AsyncGenerator
-from uuid import uuid4
 
 import pytest
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
