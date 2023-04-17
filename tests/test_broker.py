@@ -48,12 +48,7 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
         get_first_task(broker),
         timeout=1,
     )
-    assert pickle.dumps(message_to_send) == received_message_bytes
-
-    received_message: BrokerMessage = pickle.loads(
-        received_message_bytes,
-    )
-    assert message_to_send == received_message
+    assert received_message_bytes == message_to_send.message
 
 
 @pytest.mark.anyio
@@ -110,7 +105,7 @@ async def test_listen(
 
     await test_kafka_producer.send(
         topic=base_topic_name,
-        value=pickle.dumps(message_to_send),
+        value=message_to_send.message,
     )
 
     received_message_bytes: bytes = await asyncio.wait_for(
@@ -118,13 +113,4 @@ async def test_listen(
         timeout=1,
     )
 
-    assert pickle.dumps(message_to_send) == received_message_bytes
-
-    received_message: BrokerMessage = pickle.loads(
-        received_message_bytes,
-    )
-
-    assert received_message.message == message
-    assert received_message.labels == labels
-    assert received_message.task_id == task_id
-    assert received_message.task_name == task_name
+    assert received_message_bytes == message_to_send.message

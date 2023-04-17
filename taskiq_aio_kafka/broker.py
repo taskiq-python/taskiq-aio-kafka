@@ -183,12 +183,11 @@ class AioKafkaBroker(AsyncBroker):
         if not self._is_producer_started:
             raise ValueError("Please run startup before kicking.")
 
-        kafka_message: bytes = pickle.dumps(message)
         topic_name: str = self._kafka_topic.name
 
         await self._aiokafka_producer.send(
             topic=topic_name,
-            value=kafka_message,
+            value=message.message,
         )
 
     async def listen(
