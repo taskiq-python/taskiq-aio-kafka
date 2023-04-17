@@ -1,5 +1,6 @@
 import os
 from typing import AsyncGenerator
+from uuid import uuid4
 
 import pytest
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -35,7 +36,7 @@ def base_topic_name() -> str:
 
     :returns: topic name.
     """
-    return "taskiq_topic"
+    return uuid4().hex
 
 
 @pytest.fixture()
@@ -134,8 +135,8 @@ async def broker(
         bootstrap_servers=kafka_url,
         aiokafka_producer=test_kafka_producer,
         aiokafka_consumer=test_kafka_consumer,
-        delete_topic_on_shutdown=True,
         kafka_topic=base_topic,
+        delete_topic_on_shutdown=True,
     )
     broker.is_worker_process = True
 

@@ -73,7 +73,7 @@ async def test_startup(
         str
     ] = broker_without_arguments._kafka_admin_client.list_topics()  # noqa: WPS437
 
-    assert base_topic_name in all_kafka_topics
+    assert broker_without_arguments._kafka_topic.name in all_kafka_topics
 
 
 @pytest.mark.anyio
