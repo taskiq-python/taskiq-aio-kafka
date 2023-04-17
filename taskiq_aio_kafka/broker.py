@@ -86,22 +86,9 @@ class AioKafkaBroker(AsyncBroker):
             replication_factor=1,
         )
 
-        self._aiokafka_producer: AIOKafkaProducer = (
-            aiokafka_producer
-            or AIOKafkaProducer(
-                bootstrap_servers=self._bootstrap_servers,
-                loop=self._loop,
-            )
-        )
+        self._aiokafka_producer: Optional[AIOKafkaProducer] = aiokafka_producer
 
-        self._aiokafka_consumer: AIOKafkaConsumer = (
-            aiokafka_consumer
-            or AIOKafkaConsumer(
-                self._kafka_topic.name,
-                bootstrap_servers=self._bootstrap_servers,
-                loop=self._loop,
-            )
-        )
+        self._aiokafka_consumer: Optional[AIOKafkaConsumer] = aiokafka_consumer
 
         self._kafka_admin_client: KafkaAdminClient = (
             kafka_admin_client
@@ -137,8 +124,21 @@ class AioKafkaBroker(AsyncBroker):
                 validate_only=False,
             )
 
+        if not self._aiokafka_producer:
+            self._aiokafka_producer = AIOKafkaProducer(
+                bootstrap_servers=self._bootstrap_servers,
+                loop=self._loop,
+            )
         await self._aiokafka_producer.start()
+
         if self.is_worker_process:
+            if not self._aiokafka_consumer:
+                self._aiokafka_consumer = AIOKafkaConsumer(
+                    self._kafka_topic.name,
+                    bootstrap_servers=self._bootstrap_servers,
+                    loop=self._loop,
+                )
+
             await self._aiokafka_consumer.start()
             self._is_consumer_started = True
 
@@ -185,7 +185,7 @@ class AioKafkaBroker(AsyncBroker):
 
         topic_name: str = self._kafka_topic.name
 
-        await self._aiokafka_producer.send(
+        await self._aiokafka_producer.send(  # type: ignore
             topic=topic_name,
             value=message.message,
         )
@@ -204,5 +204,5 @@ class AioKafkaBroker(AsyncBroker):
         if not self._is_consumer_started:
             raise ValueError("Please run startup before listening.")
 
-        async for raw_kafka_message in self._aiokafka_consumer:
+        async for raw_kafka_message in self._aiokafka_consumer:  # type: ignore
             yield raw_kafka_message.value
