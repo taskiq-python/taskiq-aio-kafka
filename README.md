@@ -13,6 +13,24 @@ async def test() -> None:
     print("The best task ever!")
 ```
 
+## Non-obvious things
+
+You can configure kafka producer and consumer with special methods `configure_producer` and `configure_consumer`.  
+Example:
+```python
+from taskiq_aio_kafka import AioKafkaBroker
+
+broker = AioKafkaBroker(bootstrap_servers="localhost")
+
+# configure producer, you can set any parameter from
+# base AIOKafkaProducer, except `loop` and `bootstrap_servers`
+broker.configure_producer(request_timeout_ms=100000)
+
+# configure consumer, you can set any parameter from
+# base AIOKafkaConsumer, except `loop` and `bootstrap_servers`
+broker.configure_consumer(group_id="the best group ever.")
+```
+
 ## Configuration
 
 AioKafkaBroker parameters:
