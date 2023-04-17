@@ -80,7 +80,6 @@ async def test_startup(
 async def test_listen(
     broker: AioKafkaBroker,
     test_kafka_producer: AIOKafkaProducer,
-    base_topic_name: str,
 ) -> None:
     """Test that message are read correctly.
 
@@ -89,8 +88,8 @@ async def test_listen(
 
     :param broker: current broker.
     :param test_kafka_producer: AIOKafkaProducer.
-    :param base_topic_name: topic name.
     """
+    await test_kafka_producer.start()
     task_id: str = uuid4().hex
     task_name: str = uuid4().hex
     message: bytes = pickle.dumps(uuid4().hex)
@@ -104,7 +103,7 @@ async def test_listen(
     )
 
     await test_kafka_producer.send(
-        topic=base_topic_name,
+        topic=broker._kafka_topic.name,
         value=message_to_send.message,
     )
 

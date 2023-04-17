@@ -115,6 +115,7 @@ async def broker(
     kafka_url: str,
     test_kafka_producer: AIOKafkaProducer,
     test_kafka_consumer: AIOKafkaConsumer,
+    base_topic: NewTopic,
 ) -> AsyncGenerator[AioKafkaBroker, None]:
     """Yield new broker instance.
 
@@ -125,6 +126,7 @@ async def broker(
     :param kafka_url: url to kafka.
     :param test_kafka_producer: custom AIOKafkaProducer.
     :param test_kafka_consumer: custom AIOKafkaConsumer.
+    :param base_topic: base topic.
 
     :yields: broker.
     """
@@ -133,6 +135,7 @@ async def broker(
         aiokafka_producer=test_kafka_producer,
         aiokafka_consumer=test_kafka_consumer,
         delete_topic_on_shutdown=True,
+        kafka_topic=base_topic,
     )
     broker.is_worker_process = True
 
