@@ -38,7 +38,5 @@ AioKafkaBroker parameters:
 * `kafka_topic` - custom topic in kafka.
 * `result_backend` - custom result backend.
 * `task_id_generator` - custom task_id genertaor.
-* `aiokafka_producer` - custom `aiokafka` producer.
-* `aiokafka_consumer` - custom `aiokafka` consumer.
 * `kafka_admin_client` - custom `kafka` admin client.
 * `delete_topic_on_shutdown` - flag to delete topic on broker shutdown.

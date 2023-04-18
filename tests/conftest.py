@@ -114,8 +114,6 @@ async def broker_without_arguments(
 @pytest.fixture()
 async def broker(
     kafka_url: str,
-    test_kafka_producer: AIOKafkaProducer,
-    test_kafka_consumer: AIOKafkaConsumer,
     base_topic: NewTopic,
 ) -> AsyncGenerator[AioKafkaBroker, None]:
     """Yield new broker instance.
@@ -125,16 +123,12 @@ async def broker(
     and shutdown after test.
 
     :param kafka_url: url to kafka.
-    :param test_kafka_producer: custom AIOKafkaProducer.
-    :param test_kafka_consumer: custom AIOKafkaConsumer.
     :param base_topic: base topic.
 
     :yields: broker.
     """
     broker = AioKafkaBroker(
         bootstrap_servers=kafka_url,
-        aiokafka_producer=test_kafka_producer,
-        aiokafka_consumer=test_kafka_consumer,
         kafka_topic=base_topic,
         delete_topic_on_shutdown=True,
     )
