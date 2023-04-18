@@ -46,8 +46,6 @@ class AioKafkaBroker(AsyncBroker):
         kafka_topic: Optional[NewTopic] = None,
         result_backend: Optional[AsyncResultBackend[_T]] = None,
         task_id_generator: Optional[Callable[[], str]] = None,
-        aiokafka_producer: Optional[AIOKafkaProducer] = None,
-        aiokafka_consumer: Optional[AIOKafkaConsumer] = None,
         kafka_admin_client: Optional[KafkaAdminClient] = None,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         delete_topic_on_shutdown: bool = False,
@@ -58,8 +56,6 @@ class AioKafkaBroker(AsyncBroker):
         :param kafka_topic: kafka topic.
         :param result_backend: custom result backend.
         :param task_id_generator: custom task_id generator.
-        :param aiokafka_producer: configured AIOKafkaProducer.
-        :param aiokafka_consumer: configured AIOKafkaConsumer.
         :param kafka_admin_client: configured KafkaAdminClient.
         :param loop: specific even loop.
         :param delete_topic_on_shutdown: delete or don't delete topic on shutdown.
@@ -69,10 +65,10 @@ class AioKafkaBroker(AsyncBroker):
         """
         super().__init__(result_backend, task_id_generator)
 
-        if (aiokafka_producer or aiokafka_consumer) and not bootstrap_servers:
+        if kafka_admin_client and not bootstrap_servers:
             raise WrongAioKafkaBrokerParametersError(
                 (
-                    "If you specify `aiokafka_producer` and/or `aiokafka_consumer`, "
+                    "If you specify `kafka_admin_client`, "
                     "you must specify `bootstrap_servers`."
                 ),
             )
