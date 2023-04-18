@@ -1,7 +1,7 @@
 import asyncio
 import pickle  # noqa: S403
 from logging import getLogger
-from typing import AsyncGenerator, Callable, List, Optional, Set, TypeVar, Union
+from typing import Any, AsyncGenerator, Callable, List, Optional, Set, TypeVar, Union
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -9,6 +9,7 @@ from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
 
 from taskiq_aio_kafka.exceptions import WrongAioKafkaBrokerParametersError
+from taskiq_aio_kafka.models import KafkaConsumerParameters, KafkaProducerParameters
 
 _T = TypeVar("_T")  # noqa: WPS111
 
@@ -86,21 +87,12 @@ class AioKafkaBroker(AsyncBroker):
             replication_factor=1,
         )
 
-        self._aiokafka_producer: AIOKafkaProducer = (
-            aiokafka_producer
-            or AIOKafkaProducer(
-                bootstrap_servers=self._bootstrap_servers,
-                loop=self._loop,
-            )
+        self._aiokafka_producer_params: KafkaProducerParameters = (
+            KafkaProducerParameters()
         )
 
-        self._aiokafka_consumer: AIOKafkaConsumer = (
-            aiokafka_consumer
-            or AIOKafkaConsumer(
-                self._kafka_topic.name,
-                bootstrap_servers=self._bootstrap_servers,
-                loop=self._loop,
-            )
+        self._aiokafka_consumer_params: KafkaConsumerParameters = (
+            KafkaConsumerParameters()
         )
 
         self._kafka_admin_client: KafkaAdminClient = (
@@ -118,6 +110,30 @@ class AioKafkaBroker(AsyncBroker):
         self._is_producer_started = False
         self._is_consumer_started = False
 
+    def configure_producer(self, **producer_parameters: Any) -> None:
+        """Configure kafka producer.
+
+        You can pass here any configuration parameters
+        accepted by the kafka producer.
+
+        :param producer_parameters: producer parameters kwargs.
+        """
+        self._aiokafka_producer_params = KafkaProducerParameters(
+            **producer_parameters,
+        )
+
+    def configure_consumer(self, **consumer_parameters: Any) -> None:
+        """Configure kafka consumer.
+
+        You can pass here any configuration parameters
+        accepted by the kafka consumer.
+
+        :param consumer_parameters: consumer parameters kwargs.
+        """
+        self._aiokafka_consumer_params = KafkaConsumerParameters(
+            **consumer_parameters,
+        )
+
     async def startup(self) -> None:
         """Setup AIOKafkaProducer, AIOKafkaConsumer and kafka topics.
 
@@ -127,18 +143,29 @@ class AioKafkaBroker(AsyncBroker):
         if there are no producer and consumer passed.
         """
         await super().startup()
-
-        is_topic_available: bool = bool(
-            self._kafka_admin_client.describe_topics([self._kafka_topic.name]),
+        available_condition: bool = (
+            self._kafka_topic.name not in self._kafka_admin_client.list_topics()
         )
-        if not is_topic_available:
+        if available_condition:
             self._kafka_admin_client.create_topics(
                 new_topics=[self._kafka_topic],
                 validate_only=False,
             )
-
+        self._aiokafka_producer = AIOKafkaProducer(
+            bootstrap_servers=self._bootstrap_servers,
+            loop=self._loop,
+            **self._aiokafka_producer_params.dict(),
+        )
         await self._aiokafka_producer.start()
+
         if self.is_worker_process:
+            self._aiokafka_consumer = AIOKafkaConsumer(
+                self._kafka_topic.name,
+                bootstrap_servers=self._bootstrap_servers,
+                loop=self._loop,
+                **self._aiokafka_consumer_params.dict(),
+            )
+
             await self._aiokafka_consumer.start()
             self._is_consumer_started = True
 
@@ -148,10 +175,10 @@ class AioKafkaBroker(AsyncBroker):
         """Close all connections on shutdown."""
         await super().shutdown()
 
-        if self._aiokafka_producer:
+        if self._is_producer_started:
             await self._aiokafka_producer.stop()
 
-        if self._aiokafka_consumer:
+        if self._is_consumer_started:
             await self._aiokafka_consumer.stop()
 
         topic_delete_condition: bool = all(
@@ -183,12 +210,11 @@ class AioKafkaBroker(AsyncBroker):
         if not self._is_producer_started:
             raise ValueError("Please run startup before kicking.")
 
-        kafka_message: bytes = pickle.dumps(message)
         topic_name: str = self._kafka_topic.name
 
-        await self._aiokafka_producer.send(
+        await self._aiokafka_producer.send(  # type: ignore
             topic=topic_name,
-            value=kafka_message,
+            value=message.message,
         )
 
     async def listen(
@@ -205,5 +231,5 @@ class AioKafkaBroker(AsyncBroker):
         if not self._is_consumer_started:
             raise ValueError("Please run startup before listening.")
 
-        async for raw_kafka_message in self._aiokafka_consumer:
+        async for raw_kafka_message in self._aiokafka_consumer:  # type: ignore
             yield raw_kafka_message.value

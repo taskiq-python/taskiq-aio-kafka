@@ -48,12 +48,7 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
         get_first_task(broker),
         timeout=1,
     )
-    assert pickle.dumps(message_to_send) == received_message_bytes
-
-    received_message: BrokerMessage = pickle.loads(
-        received_message_bytes,
-    )
-    assert message_to_send == received_message
+    assert received_message_bytes == message_to_send.message
 
 
 @pytest.mark.anyio
@@ -78,14 +73,13 @@ async def test_startup(
         str
     ] = broker_without_arguments._kafka_admin_client.list_topics()  # noqa: WPS437
 
-    assert base_topic_name in all_kafka_topics
+    assert broker_without_arguments._kafka_topic.name in all_kafka_topics
 
 
 @pytest.mark.anyio
 async def test_listen(
     broker: AioKafkaBroker,
     test_kafka_producer: AIOKafkaProducer,
-    base_topic_name: str,
 ) -> None:
     """Test that message are read correctly.
 
@@ -94,8 +88,8 @@ async def test_listen(
 
     :param broker: current broker.
     :param test_kafka_producer: AIOKafkaProducer.
-    :param base_topic_name: topic name.
     """
+    await test_kafka_producer.start()
     task_id: str = uuid4().hex
     task_name: str = uuid4().hex
     message: bytes = pickle.dumps(uuid4().hex)
@@ -109,8 +103,8 @@ async def test_listen(
     )
 
     await test_kafka_producer.send(
-        topic=base_topic_name,
-        value=pickle.dumps(message_to_send),
+        topic=broker._kafka_topic.name,
+        value=message_to_send.message,
     )
 
     received_message_bytes: bytes = await asyncio.wait_for(
@@ -118,13 +112,4 @@ async def test_listen(
         timeout=1,
     )
 
-    assert pickle.dumps(message_to_send) == received_message_bytes
-
-    received_message: BrokerMessage = pickle.loads(
-        received_message_bytes,
-    )
-
-    assert received_message.message == message
-    assert received_message.labels == labels
-    assert received_message.task_id == task_id
-    assert received_message.task_name == task_name
+    assert received_message_bytes == message_to_send.message
