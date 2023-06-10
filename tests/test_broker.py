@@ -1,5 +1,5 @@
 import asyncio
-import pickle  # noqa: S403
+import pickle
 from typing import Dict, List
 from uuid import uuid4
 
@@ -17,7 +17,7 @@ async def get_first_task(broker: AioKafkaBroker) -> bytes:  # type: ignore
 
     :returns: first message from listen method
     """
-    async for message in broker.listen():  # noqa: WPS328
+    async for message in broker.listen():
         return message
 
 
@@ -65,13 +65,13 @@ async def test_startup(
     :param broker_without_arguments: broker.
     :param base_topic_name: base topic name.
     """
-    assert broker_without_arguments._aiokafka_consumer  # noqa: WPS437
-    assert broker_without_arguments._aiokafka_producer  # noqa: WPS437
-    assert broker_without_arguments._kafka_admin_client  # noqa: WPS437
+    assert broker_without_arguments._aiokafka_consumer
+    assert broker_without_arguments._aiokafka_producer
+    assert broker_without_arguments._kafka_admin_client
 
     all_kafka_topics: List[
         str
-    ] = broker_without_arguments._kafka_admin_client.list_topics()  # noqa: WPS437
+    ] = broker_without_arguments._kafka_admin_client.list_topics()
 
     assert broker_without_arguments._kafka_topic.name in all_kafka_topics
 
