@@ -29,7 +29,7 @@ jobs:
   pytest:
     services:
       zookeeper:
-        image: bitnami/zookeeper
+        image: bitnami/zookeeper:3.8.1
         ports:
           - 2181:2181
         env:
@@ -40,7 +40,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       kafka:
-        image: bitnami/kafka
+        image: bitnami/kafka:3.4.1
         ports:
           - 9092:9092
         options: >-
@@ -53,6 +53,7 @@ jobs:
           ALLOW_PLAINTEXT_LISTENER: yes
           KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
           KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+          KAFKA_ENABLE_KRAFT: "no"
     permissions:
       checks: write
       pull-requests: write
