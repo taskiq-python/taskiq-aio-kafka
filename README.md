@@ -15,7 +15,7 @@ async def test() -> None:
 
 ## Non-obvious things
 
-You can configure kafka producer and consumer with special methods `configure_producer` and `configure_consumer`.  
+You can configure kafka producer and consumer with special methods `configure_producer` and `configure_consumer`.
 Example:
 ```python
 from taskiq_aio_kafka import AioKafkaBroker
