@@ -40,15 +40,15 @@ class KafkaProducerParameters(BaseModel):
 class KafkaConsumerParameters(BaseModel):
     """Parameters to kafka consumer."""
 
-    client_id: str = "aiokafka-" + __version__  # noqa: WPS336
+    client_id: str = f"aiokafka-{__version__}"
     group_id: Optional[str] = None
     key_deserializer: Optional[Callable[..., Any]] = None
     value_deserializer: Optional[Callable[..., Any]] = None
     fetch_max_wait_ms: int = 500
     fetch_max_bytes: int = 52428800
     fetch_min_bytes: int = 1
-    max_partition_fetch_bytes: int = 1 * 1024 * 1024  # noqa: WPS345
-    request_timeout_ms: int = 40 * 1000  # noqa: WPS432
+    max_partition_fetch_bytes: int = 1024 * 1024
+    request_timeout_ms: int = 40000
     retry_backoff_ms: int = 100
     auto_offset_reset: str = "latest"
     enable_auto_commit: bool = True

@@ -1,5 +1,4 @@
 import asyncio
-import pickle  # noqa: S403
 from logging import getLogger
 from typing import Any, AsyncGenerator, Callable, List, Optional, Set, TypeVar, Union
 
