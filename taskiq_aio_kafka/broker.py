@@ -149,7 +149,7 @@ class AioKafkaBroker(AsyncBroker):
         self._aiokafka_producer = AIOKafkaProducer(
             bootstrap_servers=self._bootstrap_servers,
             loop=self._loop,
-            **self._aiokafka_producer_params.dict(),
+            **self._aiokafka_producer_params.model_dump(),
         )
         await self._aiokafka_producer.start()
 
@@ -158,7 +158,7 @@ class AioKafkaBroker(AsyncBroker):
                 self._kafka_topic.name,
                 bootstrap_servers=self._bootstrap_servers,
                 loop=self._loop,
-                **self._aiokafka_consumer_params.dict(),
+                **self._aiokafka_consumer_params.model_dump(),
             )
 
             await self._aiokafka_consumer.start()
