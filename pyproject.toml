@@ -27,7 +27,6 @@ packages = [{ include = "taskiq_aio_kafka" }]
 python = "^3.9"
 taskiq = "^0"
 aiokafka = "^0.10.0"
-pydantic = "^2.7.4"
 kafka-python = "^2.0.2"
 
 [tool.poetry.group.dev.dependencies]
