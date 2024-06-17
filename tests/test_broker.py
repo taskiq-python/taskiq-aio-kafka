@@ -69,9 +69,9 @@ async def test_startup(
     assert broker_without_arguments._aiokafka_producer
     assert broker_without_arguments._kafka_admin_client
 
-    all_kafka_topics: List[
-        str
-    ] = broker_without_arguments._kafka_admin_client.list_topics()
+    all_kafka_topics: List[str] = (
+        broker_without_arguments._kafka_admin_client.list_topics()
+    )
 
     assert broker_without_arguments._kafka_topic.name in all_kafka_topics
 

@@ -1,8 +1,6 @@
 from typing import Any, Callable, Optional, Union
 
 from aiokafka import __version__
-from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
-from kafka.partitioner.default import DefaultPartitioner
 from pydantic import BaseModel
 
 
@@ -18,7 +16,7 @@ class KafkaProducerParameters(BaseModel):
     value_serializer: Optional[Callable[..., bytes]] = None
     compression_type: Optional[str] = None
     max_batch_size: int = 16384
-    partitioner: Callable[..., Any] = DefaultPartitioner()
+    partitioner: Optional[Callable[..., Any]] = None
     max_request_size: int = 1048576
     linger_ms: int = 0
     send_backoff_ms: int = 100
@@ -55,7 +53,7 @@ class KafkaConsumerParameters(BaseModel):
     auto_commit_interval_ms: int = 5000
     check_crcs: bool = True
     metadata_max_age_ms: int = 5 * 60 * 1000
-    partition_assignment_strategy: Any = (RoundRobinPartitionAssignor,)
+    partition_assignment_strategy: Any = None
     max_poll_interval_ms: int = 300000
     rebalance_timeout_ms: Optional[int] = None
     session_timeout_ms: int = 10000
