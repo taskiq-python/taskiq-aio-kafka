@@ -4,8 +4,11 @@ from typing import Any, AsyncGenerator, Callable, List, Optional, Set, TypeVar, 
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
+from kafka.partitioner.default import DefaultPartitioner
 from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
+from taskiq.compat import model_dump
 
 from taskiq_aio_kafka.exceptions import WrongAioKafkaBrokerParametersError
 from taskiq_aio_kafka.models import KafkaConsumerParameters, KafkaProducerParameters
@@ -146,19 +149,31 @@ class AioKafkaBroker(AsyncBroker):
                 new_topics=[self._kafka_topic],
                 validate_only=False,
             )
+
+        partitioner = self._aiokafka_producer_params.partitioner or DefaultPartitioner()
+        producer_kwargs = model_dump(self._aiokafka_producer_params)
+        producer_kwargs["partitioner"] = partitioner
         self._aiokafka_producer = AIOKafkaProducer(
             bootstrap_servers=self._bootstrap_servers,
             loop=self._loop,
-            **self._aiokafka_producer_params.dict(),
+            **producer_kwargs,
         )
         await self._aiokafka_producer.start()
 
         if self.is_worker_process:
+            partition_assignment_strategy = (
+                self._aiokafka_consumer_params.partition_assignment_strategy
+                or (RoundRobinPartitionAssignor,)
+            )
+            consumer_kwargs = model_dump(self._aiokafka_consumer_params)
+            consumer_kwargs["partition_assignment_strategy"] = (
+                partition_assignment_strategy
+            )
             self._aiokafka_consumer = AIOKafkaConsumer(
                 self._kafka_topic.name,
                 bootstrap_servers=self._bootstrap_servers,
                 loop=self._loop,
-                **self._aiokafka_consumer_params.dict(),
+                **consumer_kwargs,
             )
 
             await self._aiokafka_consumer.start()
