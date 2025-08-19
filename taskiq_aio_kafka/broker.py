@@ -8,7 +8,6 @@ from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.partitioner.default import DefaultPartitioner
 from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
-from taskiq.compat import model_dump
 
 from taskiq_aio_kafka.exceptions import WrongAioKafkaBrokerParametersError
 from taskiq_aio_kafka.models import KafkaConsumerParameters, KafkaProducerParameters
@@ -151,7 +150,7 @@ class AioKafkaBroker(AsyncBroker):
             )
 
         partitioner = self._aiokafka_producer_params.partitioner or DefaultPartitioner()
-        producer_kwargs = model_dump(self._aiokafka_producer_params)
+        producer_kwargs = self._aiokafka_producer_params.model_dump()
         producer_kwargs["partitioner"] = partitioner
         self._aiokafka_producer = AIOKafkaProducer(
             bootstrap_servers=self._bootstrap_servers,
@@ -165,7 +164,7 @@ class AioKafkaBroker(AsyncBroker):
                 self._aiokafka_consumer_params.partition_assignment_strategy
                 or (RoundRobinPartitionAssignor,)
             )
-            consumer_kwargs = model_dump(self._aiokafka_consumer_params)
+            consumer_kwargs = self._aiokafka_consumer_params.model_dump()
             consumer_kwargs["partition_assignment_strategy"] = (
                 partition_assignment_strategy
             )
