@@ -1,6 +1,8 @@
 name: Testing package
 
-on: push
+on:
+  pull_request:
+  push:
 
 jobs:
   lint:
@@ -60,7 +62,7 @@ jobs:
       contents: write
     strategy:
       matrix:
-        py_version: ["3.8", "3.9", "3.10", "3.11"]
+        py_version: ["3.9", "3.10", "3.11"]
         os: [ubuntu-latest]
     runs-on: "${{ matrix.os }}"
     steps:
