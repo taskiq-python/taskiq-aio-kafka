@@ -1,6 +1,10 @@
 # AioKafka broker for taskiq
 
-This lirary provides you with aiokafka broker for taskiq.
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/taskiq-aio-kafka?style=for-the-badge)](https://pypi.org/project/taskiq-aio-kafka/)
+[![PyPI](https://img.shields.io/pypi/v/taskiq-aio-kafka?style=for-the-badge)](https://pypi.org/project/taskiq-aio-kafka/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/taskiq-aio-kafka?style=for-the-badge)](https://pypistats.org/packages/taskiq-aio-kafka)
+
+This library provides you with aiokafka broker for taskiq.
 
 Usage:
 ```python

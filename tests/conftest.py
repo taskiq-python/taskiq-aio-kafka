@@ -1,5 +1,5 @@
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from uuid import uuid4
 
 import pytest
@@ -18,7 +18,7 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-@pytest.fixture()
+@pytest.fixture
 def kafka_url() -> str:
     """Get custom kafka url.
 
@@ -30,7 +30,7 @@ def kafka_url() -> str:
     return os.environ.get("TEST_KAFKA_URL", "localhost")
 
 
-@pytest.fixture()
+@pytest.fixture
 def base_topic_name() -> str:
     """Return topic name.
 
@@ -39,7 +39,7 @@ def base_topic_name() -> str:
     return uuid4().hex
 
 
-@pytest.fixture()
+@pytest.fixture
 def base_topic(base_topic_name: str) -> NewTopic:
     """Generate base kafka topic.
 
@@ -54,7 +54,7 @@ def base_topic(base_topic_name: str) -> NewTopic:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 async def test_kafka_producer(kafka_url: str) -> AIOKafkaProducer:
     """Create kafka producer.
 
@@ -67,7 +67,7 @@ async def test_kafka_producer(kafka_url: str) -> AIOKafkaProducer:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 async def test_kafka_consumer(
     kafka_url: str,
     base_topic: NewTopic,
@@ -85,7 +85,7 @@ async def test_kafka_consumer(
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 async def broker_without_arguments(
     kafka_url: str,
 ) -> AsyncGenerator[AioKafkaBroker, None]:
@@ -111,7 +111,7 @@ async def broker_without_arguments(
     await broker.shutdown()
 
 
-@pytest.fixture()
+@pytest.fixture
 async def broker(
     kafka_url: str,
     base_topic: NewTopic,
