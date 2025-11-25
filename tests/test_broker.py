@@ -1,16 +1,14 @@
 import asyncio
 import pickle
-from typing import Dict, List
 from uuid import uuid4
 
-import pytest
 from aiokafka import AIOKafkaProducer
 from taskiq import BrokerMessage
 
 from taskiq_aio_kafka.broker import AioKafkaBroker
 
 
-async def get_first_task(broker: AioKafkaBroker) -> bytes:  # type: ignore
+async def get_first_task(broker: AioKafkaBroker) -> bytes:  # type: ignore[return]
     """Get first message from the topic.
 
     :param broker: async message broker.
@@ -21,7 +19,6 @@ async def get_first_task(broker: AioKafkaBroker) -> bytes:  # type: ignore
         return message
 
 
-@pytest.mark.anyio
 async def test_kick_success(broker: AioKafkaBroker) -> None:
     """Test that message is published in the topic and read correctly.
 
@@ -51,10 +48,8 @@ async def test_kick_success(broker: AioKafkaBroker) -> None:
     assert received_message_bytes == message_to_send.message
 
 
-@pytest.mark.anyio
 async def test_startup(
     broker_without_arguments: AioKafkaBroker,
-    base_topic_name: str,
 ) -> None:
     """Test startup event.
 
@@ -63,20 +58,18 @@ async def test_startup(
     AIOKafkaProducer and AIOKafkaConsumer.
 
     :param broker_without_arguments: broker.
-    :param base_topic_name: base topic name.
     """
     assert broker_without_arguments._aiokafka_consumer
     assert broker_without_arguments._aiokafka_producer
     assert broker_without_arguments._kafka_admin_client
 
-    all_kafka_topics: List[str] = (
+    all_kafka_topics: list[str] = (
         broker_without_arguments._kafka_admin_client.list_topics()
     )
 
     assert broker_without_arguments._kafka_topic.name in all_kafka_topics
 
 
-@pytest.mark.anyio
 async def test_listen(
     broker: AioKafkaBroker,
     test_kafka_producer: AIOKafkaProducer,
@@ -93,7 +86,7 @@ async def test_listen(
     task_id: str = uuid4().hex
     task_name: str = uuid4().hex
     message: bytes = pickle.dumps(uuid4().hex)
-    labels: Dict[str, str] = {"test_label": "123"}
+    labels: dict[str, str] = {"test_label": "123"}
 
     message_to_send: BrokerMessage = BrokerMessage(
         task_id=task_id,

@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import AsyncGenerator, Callable
 from logging import getLogger
-from typing import Any, AsyncGenerator, Callable, List, Optional, Set, TypeVar, Union
+from typing import Any, TypeVar
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -12,43 +13,23 @@ from taskiq.abc.broker import AsyncBroker
 from taskiq_aio_kafka.exceptions import WrongAioKafkaBrokerParametersError
 from taskiq_aio_kafka.models import KafkaConsumerParameters, KafkaProducerParameters
 
-_T = TypeVar("_T")  # noqa: WPS111
+_T = TypeVar("_T")
 
 
 logger = getLogger("taskiq.kafka_broker")
 
 
-def parse_val(
-    parse_func: Callable[[str], _T],
-    target: Optional[str] = None,
-) -> Optional[_T]:
-    """
-    Parse string to some value.
-
-    :param parse_func: function to use if value is present.
-    :param target: value to parse, defaults to None
-    :return: Optional value.
-    """
-    if target is None:
-        return None
-
-    try:
-        return parse_func(target)
-    except ValueError:
-        return None
-
-
 class AioKafkaBroker(AsyncBroker):
     """Broker that works with Kafka."""
 
-    def __init__(  # noqa: WPS211
+    def __init__(  # noqa: PLR0913
         self,
-        bootstrap_servers: Optional[Union[str, List[str]]],
-        kafka_topic: Optional[NewTopic] = None,
-        result_backend: Optional[AsyncResultBackend[_T]] = None,
-        task_id_generator: Optional[Callable[[], str]] = None,
-        kafka_admin_client: Optional[KafkaAdminClient] = None,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
+        bootstrap_servers: str | list[str] | None,
+        kafka_topic: NewTopic | None = None,
+        result_backend: AsyncResultBackend[_T] | None = None,
+        task_id_generator: Callable[[], str] | None = None,
+        kafka_admin_client: KafkaAdminClient | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
         delete_topic_on_shutdown: bool = False,
     ) -> None:
         """Construct a new broker.
@@ -67,16 +48,11 @@ class AioKafkaBroker(AsyncBroker):
         super().__init__(result_backend, task_id_generator)
 
         if kafka_admin_client and not bootstrap_servers:
-            raise WrongAioKafkaBrokerParametersError(
-                (
-                    "If you specify `kafka_admin_client`, "
-                    "you must specify `bootstrap_servers`."
-                ),
-            )
+            raise WrongAioKafkaBrokerParametersError
 
-        self._bootstrap_servers: Optional[Union[str, List[str]]] = bootstrap_servers
+        self._bootstrap_servers: str | list[str] | None = bootstrap_servers
 
-        self._loop: Optional[asyncio.AbstractEventLoop] = loop
+        self._loop: asyncio.AbstractEventLoop | None = loop
 
         self._kafka_topic: NewTopic = kafka_topic or NewTopic(
             name="taskiq_topic",
@@ -102,7 +78,7 @@ class AioKafkaBroker(AsyncBroker):
 
         self._delete_topic_on_shutdown: bool = delete_topic_on_shutdown
 
-        self._delay_kick_tasks: Set[asyncio.Task[None]] = set()
+        self._delay_kick_tasks: set[asyncio.Task[None]] = set()
 
         self._is_producer_started = False
         self._is_consumer_started = False
@@ -193,15 +169,14 @@ class AioKafkaBroker(AsyncBroker):
         topic_delete_condition: bool = all(
             (
                 self._delete_topic_on_shutdown,
-                self._kafka_topic.name  # type: ignore
-                in self._kafka_admin_client.list_topics(),  # type: ignore
+                self._kafka_topic.name in self._kafka_admin_client.list_topics(),
             ),
         )
 
         if self._kafka_admin_client:
             if topic_delete_condition:
                 self._kafka_admin_client.delete_topics(
-                    [self._kafka_topic.name],  # type: ignore
+                    [self._kafka_topic.name],
                 )
             self._kafka_admin_client.close()
 
@@ -221,7 +196,7 @@ class AioKafkaBroker(AsyncBroker):
 
         topic_name: str = self._kafka_topic.name
 
-        await self._aiokafka_producer.send(  # type: ignore
+        await self._aiokafka_producer.send(
             topic=topic_name,
             value=message.message,
         )
@@ -240,5 +215,5 @@ class AioKafkaBroker(AsyncBroker):
         if not self._is_consumer_started:
             raise ValueError("Please run startup before listening.")
 
-        async for raw_kafka_message in self._aiokafka_consumer:  # type: ignore
+        async for raw_kafka_message in self._aiokafka_consumer:
             yield raw_kafka_message.value
