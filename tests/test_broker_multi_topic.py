@@ -15,7 +15,7 @@ class _ProducerMock:
     def __init__(self) -> None:
         self.messages: list[tuple[str, bytes]] = []
 
-    async def send(self, topic: str, value: bytes) -> None:
+    async def send_and_wait(self, topic: str, value: bytes) -> None:
         """Store produced message."""
         self.messages.append((topic, value))
 
