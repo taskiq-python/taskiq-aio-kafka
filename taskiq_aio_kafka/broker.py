@@ -196,7 +196,7 @@ class AioKafkaBroker(AsyncBroker):
 
         topic_name: str = self._kafka_topic.name
 
-        await self._aiokafka_producer.send(
+        await self._aiokafka_producer.send_and_wait(
             topic=topic_name,
             value=message.message,
         )
