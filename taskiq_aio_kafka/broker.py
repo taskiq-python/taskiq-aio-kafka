@@ -3,7 +3,7 @@ __all__ = ("AioKafkaBroker",)
 import asyncio
 from collections.abc import AsyncGenerator, Callable, Iterable
 from logging import getLogger
-from typing import Any, TypeAlias, TypeVar
+from typing import Any, TypeVar, overload
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -11,56 +11,22 @@ from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.partitioner.default import DefaultPartitioner
 from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
-from taskiq.decor import AsyncTaskiqDecoratedTask
-from taskiq.kicker import AsyncKicker
 from typing_extensions import ParamSpec
 
-from taskiq_aio_kafka.exceptions import WrongAioKafkaBrokerParametersError
-from taskiq_aio_kafka.models import KafkaConsumerParameters, KafkaProducerParameters
-from taskiq_aio_kafka.topic import Topic
+from .constants import TASK_TOPIC_LABEL
+from .decorated_task import AioKafkaDecoratedTask
+from .exceptions import WrongAioKafkaBrokerParametersError
+from .models import KafkaConsumerParameters, KafkaProducerParameters
+from .topic import Topic
+from .types import TopicType
+from .utils import get_topic_name
 
 _T = TypeVar("_T")
 _FuncParams = ParamSpec("_FuncParams")
 _ReturnType = TypeVar("_ReturnType")
-TopicType: TypeAlias = str | NewTopic | Topic
-TASK_TOPIC_LABEL = "taskiq_aio_kafka_topic"
 
 
 logger = getLogger("taskiq.kafka_broker")
-
-
-def _get_topic_name(topic: TopicType) -> str:
-    if isinstance(topic, str):
-        return topic
-    return topic.name
-
-
-class AioKafkaKicker(AsyncKicker[_FuncParams, _ReturnType]):
-    """Kicker that can override kafka topic for a task call."""
-
-    def with_topic(
-        self,
-        topic: TopicType,
-    ) -> "AioKafkaKicker[_FuncParams, _ReturnType]":
-        """Set kafka topic for current kick."""
-        self.labels = {
-            **self.labels,
-            TASK_TOPIC_LABEL: _get_topic_name(topic),
-        }
-        return self
-
-
-class AioKafkaDecoratedTask(AsyncTaskiqDecoratedTask[_FuncParams, _ReturnType]):
-    """Taskiq decorated task with kafka-specific kicker."""
-
-    def kicker(self) -> AioKafkaKicker[_FuncParams, _ReturnType]:
-        """Return kafka-aware kicker."""
-        return AioKafkaKicker(
-            task_name=self.task_name,
-            broker=self.broker,
-            labels=self.labels,
-            return_type=self.return_type,
-        )
 
 
 class AioKafkaBroker(AsyncBroker):
@@ -110,7 +76,7 @@ class AioKafkaBroker(AsyncBroker):
         if kafka_topics is not None:
             for topic in kafka_topics:
                 self._kafka_topics.setdefault(
-                    self._get_topic_name(topic),
+                    get_topic_name(topic),
                     topic,
                 )
 
@@ -136,10 +102,6 @@ class AioKafkaBroker(AsyncBroker):
 
         self._is_producer_started = False
         self._is_consumer_started = False
-
-    @staticmethod
-    def _get_topic_name(topic: TopicType) -> str:
-        return _get_topic_name(topic)
 
     @classmethod
     def _normalize_default_topic(
@@ -203,21 +165,72 @@ class AioKafkaBroker(AsyncBroker):
             **consumer_parameters,
         )
 
-    def task(  # type: ignore[override]
+    @overload
+    def task(
+        self,
+        task_name: Callable[_FuncParams, _ReturnType],
+        **labels: Any,
+    ) -> AioKafkaDecoratedTask[_FuncParams, _ReturnType]: ...
+
+    @overload
+    def task(
+        self,
+        task_name: str | None = None,
+        **labels: Any,
+    ) -> Callable[
+        [Callable[_FuncParams, _ReturnType]],
+        AioKafkaDecoratedTask[_FuncParams, _ReturnType],
+    ]: ...
+
+    def task(
         self,
         task_name: str | Callable[..., Any] | None = None,
-        *,
-        topic: TopicType | None = None,
+        **labels: Any,
+    ) -> Any:
+        """Decorate function."""
+        if callable(task_name):
+            return super().task(task_name, **labels)
+
+        return super().task(
+            task_name=task_name,
+            **labels,
+        )
+
+    @overload
+    def task_with_topic(
+        self,
+        topic: TopicType,
+        task_name: Callable[_FuncParams, _ReturnType],
+        **labels: Any,
+    ) -> AioKafkaDecoratedTask[_FuncParams, _ReturnType]: ...
+
+    @overload
+    def task_with_topic(
+        self,
+        topic: TopicType,
+        task_name: str | None = None,
+        **labels: Any,
+    ) -> Callable[
+        [Callable[_FuncParams, _ReturnType]],
+        AioKafkaDecoratedTask[_FuncParams, _ReturnType],
+    ]: ...
+
+    def task_with_topic(
+        self,
+        topic: TopicType,
+        task_name: str | Callable[..., Any] | None = None,
         **labels: Any,
     ) -> Any:
         """Decorate function and bind it to a kafka topic by default."""
-        if topic is not None:
-            topic_name = self._get_topic_name(topic)
-            self._kafka_topics.setdefault(topic_name, topic)
-            labels[self.task_topic_label] = topic_name
+        topic_name = get_topic_name(topic)
+        self._kafka_topics.setdefault(topic_name, topic)
+        labels[self.task_topic_label] = topic_name
+
+        if callable(task_name):
+            return super().task(task_name, **labels)
 
         return super().task(
-            task_name=task_name,  # type: ignore[arg-type]
+            task_name=task_name,
             **labels,
         )
 
@@ -229,12 +242,13 @@ class AioKafkaBroker(AsyncBroker):
         """
         await super().startup()
         existed_topic_names = set(self._kafka_admin_client.list_topics())
-        new_topics = [
-            new_topic
-            for topic in self._kafka_topics.values()
-            if (new_topic := self._get_declaration_topic(topic)) is not None
-            and new_topic.name not in existed_topic_names
-        ]
+
+        new_topics = []
+        for topic in self._kafka_topics.values():
+            new_topic = self._get_declaration_topic(topic)
+            if new_topic is not None and new_topic.name not in existed_topic_names:
+                new_topics.append(new_topic)
+
         if new_topics:
             self._kafka_admin_client.create_topics(
                 new_topics=new_topics,

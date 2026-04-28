@@ -59,13 +59,35 @@ async def test_task_topic_is_used_for_kick() -> None:
     broker._aiokafka_producer = producer
     broker._is_producer_started = True
 
-    @broker.task(topic="extra-topic")
+    @broker.task_with_topic("extra-topic")
     async def test_task() -> None:
         return None
 
     await test_task.kiq()
 
     assert producer.messages[0][0] == "extra-topic"
+
+
+async def test_task_topic_object_is_used_for_kick() -> None:
+    """Test that task can be bound to Topic object."""
+    extra_topic = Topic("extra-topic")
+    broker = AioKafkaBroker(
+        bootstrap_servers="localhost",
+        kafka_topic="default-topic",
+        kafka_topics=[extra_topic],
+        kafka_admin_client=get_admin_client_mock(),
+    )
+    producer = _ProducerMock()
+    broker._aiokafka_producer = producer
+    broker._is_producer_started = True
+
+    @broker.task_with_topic(extra_topic)
+    async def test_task() -> None:
+        return None
+
+    await test_task.kiq()
+
+    assert producer.messages[0][0] == extra_topic.name
 
 
 async def test_kicker_topic_overrides_task_default_topic() -> None:
@@ -80,7 +102,7 @@ async def test_kicker_topic_overrides_task_default_topic() -> None:
     broker._aiokafka_producer = producer
     broker._is_producer_started = True
 
-    @broker.task(topic="extra-topic")
+    @broker.task_with_topic("extra-topic")
     async def test_task() -> None:
         return None
 
@@ -89,6 +111,49 @@ async def test_kicker_topic_overrides_task_default_topic() -> None:
 
     assert producer.messages[0][0] == "override-topic"
     assert producer.messages[1][0] == "extra-topic"
+
+
+async def test_kicker_topic_object_overrides_task_default_topic() -> None:
+    """Test that kicker can override task default topic with Topic object."""
+    override_topic = Topic("override-topic")
+    broker = AioKafkaBroker(
+        bootstrap_servers="localhost",
+        kafka_topic="default-topic",
+        kafka_topics=["extra-topic", override_topic],
+        kafka_admin_client=get_admin_client_mock(),
+    )
+    producer = _ProducerMock()
+    broker._aiokafka_producer = producer
+    broker._is_producer_started = True
+
+    @broker.task_with_topic("extra-topic")
+    async def test_task() -> None:
+        return None
+
+    await test_task.kicker().with_topic(override_topic).kiq()
+
+    assert producer.messages[0][0] == override_topic.name
+
+
+async def test_task_topic_label_keeps_default_broker_topic() -> None:
+    """Test that regular task topic label doesn't override kafka topic."""
+    broker = AioKafkaBroker(
+        bootstrap_servers="localhost",
+        kafka_topic="default-topic",
+        kafka_admin_client=get_admin_client_mock(),
+    )
+    producer = _ProducerMock()
+    broker._aiokafka_producer = producer
+    broker._is_producer_started = True
+
+    @broker.task(topic="regular-label")
+    async def test_task() -> None:
+        return None
+
+    await test_task.kiq()
+
+    assert test_task.labels["topic"] == "regular-label"
+    assert producer.messages[0][0] == "default-topic"
 
 
 async def test_kicker_topic_is_used_without_task_default_topic() -> None:

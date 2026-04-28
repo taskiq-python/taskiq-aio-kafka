@@ -55,12 +55,12 @@ broker = AioKafkaBroker(
 )
 
 
-@broker.task(topic="emails")
+@broker.task_with_topic("emails")
 async def send_email(user_id: int) -> None:
     print(f"Send email to {user_id}")
 
 
-@broker.task(topic="reports")
+@broker.task_with_topic("reports")
 async def build_report(report_id: int) -> None:
     print(f"Build report {report_id}")
 ```
@@ -76,6 +76,7 @@ await send_email.kicker().with_topic("reports").kiq(user_id=1)
 ```
 
 Tasks without a custom topic keep the old behavior and are sent to `kafka_topic`.
+The regular `@broker.task` decorator keeps the standard taskiq labels behavior.
 
 ```python
 @broker.task
