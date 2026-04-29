@@ -20,16 +20,18 @@ jobs:
         cmd: ["black", "ruff", "mypy"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - id: setup-uv
+        name: Setup UV
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-suffix: 3.11
-          version: "latest"
-          python-version: 3.11
+          cache-suffix: "3.11"
+          github-token: ${{ github.token }}
+          python-version: "3.11"
       - name: Install deps
         run: uv sync --all-extras
       - name: Run lint check
@@ -50,8 +52,8 @@ jobs:
           KAFKA_PROCESS_ROLES: broker,controller
           KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://localhost:9093
           KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
           KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
           KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
     strategy:
       matrix:
@@ -59,15 +61,17 @@ jobs:
         os: [ubuntu-latest]
     runs-on: "${{ matrix.os }}"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - id: setup-uv
+        name: Setup UV
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           cache-suffix: ${{ matrix.py_version }}
-          version: "latest"
+          github-token: ${{ github.token }}
           python-version: ${{ matrix.py_version }}
       - name: Install deps
         run: uv sync --all-extras
