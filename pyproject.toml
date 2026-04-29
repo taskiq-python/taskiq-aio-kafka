@@ -7,7 +7,7 @@ authors = [
 maintainers = [
     {name = "Taskiq team", email = "taskiq@no-reply.com"}
 ]
-version = "0.2.1"
+dynamic = ["version"]
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -52,12 +52,14 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.9,<0.10.0"]
-build-backend = "uv_build"
+requires = ["hatchling", "versioningit"]
+build-backend = "hatchling.build"
 
-[tool.uv.build-backend]
-module-name = "taskiq_aio_kafka"
-module-root = ""
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.hatch.build.targets.wheel]
+packages = ["taskiq_aio_kafka"]
 
 [tool.pytest.ini_options]
 log_level = 'INFO'
