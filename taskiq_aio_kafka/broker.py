@@ -6,17 +6,21 @@ from logging import getLogger
 from typing import Any, TypeVar, overload
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka.structs import ConsumerRecord
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.partitioner.default import DefaultPartitioner
 from taskiq import AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
+from taskiq.decor import AsyncTaskiqDecoratedTask
+from taskiq.message import TaskiqMessage
 from typing_extensions import ParamSpec
 
-from .constants import TASK_TOPIC_LABEL
+from .constants import TASK_STREAM_LABEL, TASK_TOPIC_LABEL
 from .decorated_task import AioKafkaDecoratedTask
 from .exceptions import WrongAioKafkaBrokerParametersError
 from .models import KafkaConsumerParameters, KafkaProducerParameters
+from .subscriber import StreamDecoder, StreamMessage, StreamSubscriber
 from .topic import Topic
 from .types import TopicType
 from .utils import get_topic_name
@@ -79,6 +83,7 @@ class AioKafkaBroker(AsyncBroker):
                     get_topic_name(topic),
                     topic,
                 )
+        self._stream_subscribers: dict[str, StreamSubscriber] = {}
 
         self._aiokafka_producer_params: KafkaProducerParameters = (
             KafkaProducerParameters()
@@ -163,6 +168,30 @@ class AioKafkaBroker(AsyncBroker):
         """
         self._aiokafka_consumer_params = KafkaConsumerParameters(
             **consumer_parameters,
+        )
+
+    @staticmethod
+    def _default_stream_decoder(message: bytes) -> StreamMessage:
+        return StreamMessage(args=(message,))
+
+    def subscribe(
+        self,
+        topic: TopicType,
+        task: AsyncTaskiqDecoratedTask[Any, Any],
+        decoder: StreamDecoder | None = None,
+        **labels: Any,
+    ) -> None:
+        """Subscribe task to raw Kafka topic messages."""
+        topic_name = get_topic_name(topic)
+        if topic_name in self._stream_subscribers:
+            error_message = f"Topic {topic_name!r} is already subscribed."
+            raise ValueError(error_message)
+
+        self._kafka_topics.setdefault(topic_name, topic)
+        self._stream_subscribers[topic_name] = StreamSubscriber(
+            task_name=task.task_name,
+            decoder=decoder or self._default_stream_decoder,
+            labels=labels,
         )
 
     @overload
@@ -347,4 +376,37 @@ class AioKafkaBroker(AsyncBroker):
             raise ValueError("Please run startup before listening.")
 
         async for raw_kafka_message in self._aiokafka_consumer:
-            yield raw_kafka_message.value
+            subscriber = self._stream_subscribers.get(raw_kafka_message.topic)
+            if subscriber is None:
+                yield raw_kafka_message.value
+                continue
+
+            yield self._build_stream_message(raw_kafka_message, subscriber)
+
+    def _build_stream_message(
+        self,
+        raw_kafka_message: ConsumerRecord[Any, bytes],
+        subscriber: StreamSubscriber,
+    ) -> bytes:
+        raw_value = raw_kafka_message.value
+        decoded_value = subscriber.decoder(raw_value)
+        stream_message = self._normalize_stream_message(decoded_value)
+        labels = {
+            **subscriber.labels,
+            TASK_STREAM_LABEL: raw_kafka_message.topic,
+        }
+        message = TaskiqMessage(
+            task_id=self.id_generator(),
+            task_name=subscriber.task_name,
+            labels=labels,
+            labels_types={},
+            args=list(stream_message.args),
+            kwargs=stream_message.kwargs,
+        )
+        return self.formatter.dumps(message).message
+
+    @staticmethod
+    def _normalize_stream_message(message: Any | StreamMessage) -> StreamMessage:
+        if isinstance(message, StreamMessage):
+            return message
+        return StreamMessage(args=(message,))
