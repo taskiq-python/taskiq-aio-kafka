@@ -1347,7 +1347,6 @@ wheels = [
 
 [[package]]
 name = "taskiq-aio-kafka"
-version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiokafka" },

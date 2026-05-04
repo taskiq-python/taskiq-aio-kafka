@@ -87,6 +87,39 @@ async def regular_task() -> None:
 await regular_task.kiq()
 ```
 
+## Stream topics
+
+You can subscribe an existing task to a Kafka topic with raw messages.
+Messages from subscribed stream topics are wrapped into regular taskiq
+messages before execution, so result backends and worker middlewares keep
+working as usual.
+
+```python
+import json
+
+from taskiq_aio_kafka import AioKafkaBroker
+
+broker = AioKafkaBroker(
+    bootstrap_servers="localhost",
+    kafka_topic="taskiq-topic",
+)
+
+
+@broker.task
+async def process_user_created(event: dict[str, object]) -> None:
+    print(event)
+
+
+broker.subscribe(
+    "users.created",
+    process_user_created,
+    decoder=json.loads,
+)
+```
+
+The decoded value is passed as the first task argument. Stream messages also
+receive the `taskiq-stream` label with the source topic name.
+
 ## Configuration
 
 AioKafkaBroker parameters:
