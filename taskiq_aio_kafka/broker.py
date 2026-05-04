@@ -392,8 +392,8 @@ class AioKafkaBroker(AsyncBroker):
         decoded_value = subscriber.decoder(raw_value)
         stream_message = self._normalize_stream_message(decoded_value)
         labels = {
-            TASK_STREAM_LABEL: raw_kafka_message.topic,
             **subscriber.labels,
+            TASK_STREAM_LABEL: raw_kafka_message.topic,
         }
         message = TaskiqMessage(
             task_id=self.id_generator(),
