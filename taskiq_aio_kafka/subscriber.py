@@ -1,10 +1,19 @@
-__all__ = ("StreamDecoder", "StreamSubscriber")
+__all__ = ("StreamDecoder", "StreamMessage", "StreamSubscriber")
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-StreamDecoder = Callable[[bytes], Any]
+
+@dataclass(frozen=True)
+class StreamMessage:
+    """Decoded stream message arguments for a taskiq task."""
+
+    args: Sequence[Any] = ()
+    kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+StreamDecoder = Callable[[bytes], Any | StreamMessage]
 
 
 @dataclass(frozen=True)

@@ -8,6 +8,7 @@ from taskiq import BrokerMessage
 
 from taskiq_aio_kafka.broker import AioKafkaBroker
 from taskiq_aio_kafka.constants import TASK_STREAM_LABEL
+from taskiq_aio_kafka.subscriber import StreamMessage
 from taskiq_aio_kafka.topic import Topic
 
 
@@ -354,6 +355,47 @@ async def test_subscribe_accepts_topic_object_and_custom_labels() -> None:
     assert taskiq_message.labels == {
         TASK_STREAM_LABEL: stream_topic.name,
         "source": "external",
+    }
+
+
+async def test_subscribe_decoder_can_return_task_args_and_kwargs() -> None:
+    """Test that stream messages can be mapped to task args and kwargs."""
+    broker = AioKafkaBroker(
+        bootstrap_servers="localhost",
+        kafka_topic="default-topic",
+        kafka_admin_client=get_admin_client_mock(),
+    )
+
+    @broker.task
+    async def test_task(user_id: int, email: str, active: bool) -> None:
+        assert user_id
+        assert email
+        assert active
+
+    def decode_message(message: bytes) -> StreamMessage:
+        user_id, email, active = message.decode().split(":")
+        return StreamMessage(
+            args=(int(user_id),),
+            kwargs={
+                "email": email,
+                "active": active == "true",
+            },
+        )
+
+    broker.subscribe("stream-topic", test_task, decoder=decode_message)
+    broker._aiokafka_consumer = _ConsumerMock(
+        [build_consumer_record("stream-topic", b"1:user@example.com:true")],
+    )
+    broker._is_consumer_started = True
+
+    received_message = await get_first_task(broker)
+    taskiq_message = broker.formatter.loads(received_message)
+
+    assert taskiq_message.task_name == test_task.task_name
+    assert taskiq_message.args == [1]
+    assert taskiq_message.kwargs == {
+        "email": "user@example.com",
+        "active": True,
     }
 
 

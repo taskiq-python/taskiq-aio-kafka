@@ -117,8 +117,33 @@ broker.subscribe(
 )
 ```
 
-The decoded value is passed as the first task argument. Stream messages also
-receive the `taskiq-stream` label with the source topic name.
+The decoded value is passed as the first task argument. A decoder can also
+return `StreamMessage` to map one Kafka message into the exact `args` and
+`kwargs` expected by the task.
+
+```python
+import json
+
+from taskiq_aio_kafka import StreamMessage
+
+
+@broker.task
+async def process_user(user_id: int, email: str) -> None:
+    print(user_id, email)
+
+
+def decode_user_event(message: bytes) -> StreamMessage:
+    event = json.loads(message)
+    return StreamMessage(
+        args=(event["user"]["id"],),
+        kwargs={"email": event["user"]["email"]},
+    )
+
+
+broker.subscribe("users.created", process_user, decoder=decode_user_event)
+```
+
+Stream messages also receive the `taskiq-stream` label with the source topic name.
 
 ## Configuration
 

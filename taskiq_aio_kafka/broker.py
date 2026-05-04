@@ -20,7 +20,7 @@ from .constants import TASK_STREAM_LABEL, TASK_TOPIC_LABEL
 from .decorated_task import AioKafkaDecoratedTask
 from .exceptions import WrongAioKafkaBrokerParametersError
 from .models import KafkaConsumerParameters, KafkaProducerParameters
-from .subscriber import StreamDecoder, StreamSubscriber
+from .subscriber import StreamDecoder, StreamMessage, StreamSubscriber
 from .topic import Topic
 from .types import TopicType
 from .utils import get_topic_name
@@ -171,8 +171,8 @@ class AioKafkaBroker(AsyncBroker):
         )
 
     @staticmethod
-    def _default_stream_decoder(message: bytes) -> bytes:
-        return message
+    def _default_stream_decoder(message: bytes) -> StreamMessage:
+        return StreamMessage(args=(message,))
 
     def subscribe(
         self,
@@ -390,6 +390,7 @@ class AioKafkaBroker(AsyncBroker):
     ) -> bytes:
         raw_value = raw_kafka_message.value
         decoded_value = subscriber.decoder(raw_value)
+        stream_message = self._normalize_stream_message(decoded_value)
         labels = {
             TASK_STREAM_LABEL: raw_kafka_message.topic,
             **subscriber.labels,
@@ -399,7 +400,13 @@ class AioKafkaBroker(AsyncBroker):
             task_name=subscriber.task_name,
             labels=labels,
             labels_types={},
-            args=[decoded_value],
-            kwargs={},
+            args=list(stream_message.args),
+            kwargs=stream_message.kwargs,
         )
         return self.formatter.dumps(message).message
+
+    @staticmethod
+    def _normalize_stream_message(message: Any | StreamMessage) -> StreamMessage:
+        if isinstance(message, StreamMessage):
+            return message
+        return StreamMessage(args=(message,))
